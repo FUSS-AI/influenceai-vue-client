@@ -1,2 +1,7 @@
 
 notion-docs/
+node_modules
+
+.env
+
+dist

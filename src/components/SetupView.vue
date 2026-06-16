@@ -1,7 +1,7 @@
 <script setup>
 import { ref, computed } from 'vue'
 import { Mic, Loader2, AlertTriangle, ChevronRight } from 'lucide-vue-next'
-import { api, ApiError } from '../services/api.js'
+import { api, ApiError } from '@fuss-ai/voice-sdk'
 import { config } from '../config.js'
 
 const emit = defineEmits(['session-start'])
@@ -44,9 +44,11 @@ async function startSession() {
   isLoading.value = true
 
   try {
+    const finalUserId = userId.value.trim() || `user_${Math.random().toString(36).slice(2, 8)}`
+    
     const session = await api.createSession(
       effectiveInfluencerId.value,
-      userId.value.trim() || null,
+      finalUserId,
       {
         instructionsOverride: instructionsOverride.value.trim() || undefined,
       },

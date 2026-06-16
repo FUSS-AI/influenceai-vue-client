@@ -12,10 +12,7 @@ import {
   PhoneOff,
 } from 'lucide-vue-next'
 
-import { useVoiceSession } from '../composables/useVoiceSession.js'
-import { useTranscript }   from '../composables/useTranscript.js'
-import { useRecording }    from '../composables/useRecording.js'
-import { api }             from '../services/api.js'
+import { useVoiceSession, useRecording, api } from '@fuss-ai/voice-sdk'
 import { config }          from '../config.js'
 
 // ── Props / emits ──────────────────────────────────────────────────────────────
@@ -34,15 +31,28 @@ const {
   room,
   connectionState,
   agentState,
-  micEnabled,
+  isMuted,
   error: connectionError,
+  duration,
+  transcript,
+  clearTranscript,
+  finalMessages,
   connect,
   disconnect,
-  toggleMic,
+  mute,
+  unmute,
+  interrupt
 } = useVoiceSession()
 
 const scrollRef = ref(null)
-const { transcript, clear: clearTranscript, finalMessages } = useTranscript(room, scrollRef)
+
+import { watch, nextTick } from 'vue'
+watch(transcript, async () => {
+  await nextTick()
+  if (scrollRef.value) {
+    scrollRef.value.scrollTop = scrollRef.value.scrollHeight
+  }
+}, { deep: true })
 
 const sessionId = computed(() => props.connectionDetails.session_id)
 const {
@@ -77,6 +87,7 @@ const STATE_LABELS = {
   listening:    { text: 'Listening',     color: 'text-green-400',  dot: 'bg-green-400'  },
   speaking:     { text: 'Speaking',      color: 'text-violet-400', dot: 'bg-violet-400' },
   thinking:     { text: 'Thinking…',     color: 'text-blue-400',   dot: 'bg-blue-400'   },
+  blocked:      { text: 'Blocked',       color: 'text-red-500',    dot: 'bg-red-500'    },
   connected:    { text: 'Connected',     color: 'text-white/50',   dot: 'bg-white/30'   },
   idle:         { text: 'Connected',     color: 'text-white/50',   dot: 'bg-white/30'   },
 }
@@ -171,7 +182,7 @@ async function handleLeave() {
         <h2 class="text-base font-semibold">{{ persona.name }}</h2>
         <div class="flex items-center gap-1.5 mt-0.5">
           <span class="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
-          <span class="text-xs text-white/40">Live</span>
+          <span class="text-xs text-white/40">{{ duration }}</span>
         </div>
       </div>
 
@@ -232,21 +243,31 @@ async function handleLeave() {
           <p class="text-white/40 text-sm mt-1">AI Voice Agent</p>
         </div>
 
-        <!-- Controls: mic + end call -->
+        <!-- Controls: mic + end call + interrupt -->
         <div class="flex items-center gap-3">
           <button
             type="button"
-            :title="micEnabled ? 'Mute' : 'Unmute'"
+            :title="isMuted ? 'Unmute' : 'Mute'"
             :class="[
               'w-12 h-12 rounded-full flex items-center justify-center border transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-primary',
-              micEnabled
+              !isMuted
                 ? 'bg-primary/20 border-primary/40 hover:bg-primary/30 text-primary'
                 : 'bg-white/5 border-white/15 hover:bg-white/10 text-white/50',
             ]"
-            @click="toggleMic"
+            @click="isMuted ? unmute() : mute()"
           >
-            <Mic v-if="micEnabled" :size="18" />
+            <Mic v-if="!isMuted" :size="18" />
             <MicOff v-else :size="18" />
+          </button>
+
+          <button
+            v-if="isSpeaking || isThinking"
+            type="button"
+            title="Interrupt AI"
+            class="w-12 h-12 rounded-full flex items-center justify-center border bg-orange-500/15 border-orange-500/30 hover:bg-orange-500/25 text-orange-400 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 animate-fade-in"
+            @click="interrupt"
+          >
+            <Square :size="16" class="fill-current" />
           </button>
 
           <button
