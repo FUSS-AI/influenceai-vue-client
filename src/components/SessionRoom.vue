@@ -79,27 +79,44 @@ onMounted(() => {
 })
 
 // ── State display helpers ──────────────────────────────────────────────────────
-
+// This maps the underlying SDK states to user-friendly UI text, colors, and dots.
 const STATE_LABELS = {
+  // 1. Connection-level states
+  disconnected: { text: 'Connecting…',   color: 'text-yellow-400', dot: 'bg-yellow-400' },
   connecting:   { text: 'Connecting…',   color: 'text-yellow-400', dot: 'bg-yellow-400' },
   reconnecting: { text: 'Reconnecting…', color: 'text-yellow-400', dot: 'bg-yellow-400' },
   failed:       { text: 'Failed',        color: 'text-red-400',    dot: 'bg-red-400'    },
-  listening:    { text: 'Listening',     color: 'text-green-400',  dot: 'bg-green-400'  },
-  speaking:     { text: 'Speaking',      color: 'text-violet-400', dot: 'bg-violet-400' },
-  thinking:     { text: 'Thinking…',     color: 'text-blue-400',   dot: 'bg-blue-400'   },
-  blocked:      { text: 'Blocked',       color: 'text-red-500',    dot: 'bg-red-500'    },
   connected:    { text: 'Connected',     color: 'text-white/50',   dot: 'bg-white/30'   },
-  idle:         { text: 'Connected',     color: 'text-white/50',   dot: 'bg-white/30'   },
+  
+  // 2. Active Agent states (used when the connection is fully established)
+  listening:    { text: 'Listening',     color: 'text-green-400',  dot: 'bg-green-400'  },
+  thinking:     { text: 'Thinking…',     color: 'text-blue-400',   dot: 'bg-blue-400'   },
+  speaking:     { text: 'Speaking',      color: 'text-violet-400', dot: 'bg-violet-400' },
+  blocked:      { text: 'Blocked',       color: 'text-red-500',    dot: 'bg-red-500'    },
 }
 
+// Combine connection state and agent state into a single source of truth for the UI.
+// This makes it extremely easy to drive the UI without complex if/else trees in the template.
 const displayState = computed(() => {
-  if (['connecting', 'reconnecting', 'failed'].includes(connectionState.value)) {
+  // Step 1: If we are actively connecting, reconnecting, failed, or disconnected initially, prioritize that.
+  if (['disconnected', 'connecting', 'reconnecting', 'failed'].includes(connectionState.value)) {
     return connectionState.value
   }
-  return agentState.value || 'connected'
+  
+  // Step 2: Once connected, if the agent is actively doing something, show what it's doing.
+  // Note: We intentionally ignore the agent's 'idle' state here to just show "Connected" instead.
+  if (['listening', 'speaking', 'thinking', 'blocked'].includes(agentState.value)) {
+    return agentState.value
+  }
+  
+  // Step 3: Default to "Connected" if the connection is open but the agent hasn't started listening yet.
+  return 'connected'
 })
 
+// Safely look up the visual details for the current display state.
 const stateInfo   = computed(() => STATE_LABELS[displayState.value] ?? STATE_LABELS.connected)
+
+// Helpers to drive avatar animations
 const isSpeaking  = computed(() => agentState.value === 'speaking')
 const isListening = computed(() => agentState.value === 'listening')
 const isThinking  = computed(() => agentState.value === 'thinking')
